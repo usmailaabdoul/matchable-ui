@@ -1,14 +1,11 @@
-// components/cart/cart-dialog.tsx
 'use client';
-// import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useCart } from '@/context/cart-context';
 import { Button } from '../ui/button';
-// import { SessionCalendar } from '../session/session-calendar';
-// import { CheckoutForm } from '../checkout/checkout-form';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
-import { X } from 'lucide-react';
-import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import CheckoutModal from '../checkout/checkout-modal';
+import { toast } from '@/hooks/use-toast';
 
 export function CartDialog({ open, onOpenChange }: { 
   open: boolean;
@@ -17,10 +14,17 @@ export function CartDialog({ open, onOpenChange }: {
   const { state, dispatch } = useCart();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const calculateTotal = () => {
+  const totalCost = useMemo(() => {
     return state.items.reduce((total, item) => total + item.price, 0);
-  };
+  }, [state.items]);
 
+  const removeFromCart = (id: string) => {
+    toast({ 
+      title: "Successful remove from cart", 
+      description: "You successfully removed this session to your cart",
+    });
+    dispatch({ type: 'REMOVE_ITEM', payload: id })
+  }
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -28,13 +32,6 @@ export function CartDialog({ open, onOpenChange }: {
           <SheetHeader className="mb-4">
             <SheetTitle className="flex items-center justify-between">
               Your Cart
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="h-5 w-5" />
-              </Button>
             </SheetTitle>
           </SheetHeader>
 
@@ -50,28 +47,28 @@ export function CartDialog({ open, onOpenChange }: {
                   className="flex justify-between items-center border-b py-3"
                 >
                   <div>
-                    <p className="font-medium">{session.trainer}</p>
+                    <p className="font-medium"><strong>{session.type}</strong> - by {session.trainer.name}</p>
                     <p className="text-sm text-gray-500">
                       ${session.price}
                     </p>
+                    <p className="text-sm text-gray-500">
+                    <strong>Start time</strong>: {new Date(session.startTime)?.toLocaleDateString()}
+                    </p>
                   </div>
-                  {/* <p className="font-semibold">
-                    ${(session.price).toFixed(2)}
-                  </p> */}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="mt-2 text-red-600 hover:text-red-700"
-                    onClick={() => dispatch({ type: 'REMOVE_ITEM', payload: session.id })}
+                    onClick={() => removeFromCart(session.id)}
                   >
-                    Remove
+                    <Trash2 />
                   </Button>
                 </div>
               ))}
 
               <div className="mt-4 flex justify-between items-center">
                 <p className="font-bold">Total</p>
-                <p className="text-xl font-semibold">${calculateTotal()}</p>
+                <p className="text-xl font-semibold">${totalCost}</p>
               </div>
 
               <Button className="w-full mt-4" onClick={() => setIsCheckoutOpen(true)}>
@@ -87,6 +84,7 @@ export function CartDialog({ open, onOpenChange }: {
           isOpen={isCheckoutOpen} 
           onClose={() => setIsCheckoutOpen(false)}
           cartItemIds={state.items.map((item) => item.id)} 
+          totalCost={totalCost}
         />
       )}
     </>

@@ -1,15 +1,6 @@
 "use client"
+import { Session } from '@/types';
 import { createContext, useContext, useReducer, ReactNode } from 'react';
-
-type Session = {
-  id: string;
-  type: string;
-  price: number;
-  startTime: Date;
-  endTime: Date;
-  trainer: string;
-  image?: string;
-};
 
 type CartState = {
   items: Session[];
@@ -17,7 +8,8 @@ type CartState = {
 
 type CartAction =
   | { type: 'ADD_ITEM'; payload: Session }
-  | { type: 'REMOVE_ITEM'; payload: string };
+  | { type: 'REMOVE_ITEM'; payload: string }
+  | { type: 'CLEAR_CART' };
 
 const CartContext = createContext<{
   state: CartState;
@@ -30,6 +22,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, items: [...state.items, action.payload] };
     case 'REMOVE_ITEM':
       return { ...state, items: state.items.filter(item => item.id !== action.payload) };
+    case 'CLEAR_CART':
+      return { ...state, items: []}
     default:
       return state;
   }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,9 +19,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '../ui/checkbox';
+import { toast } from '@/hooks/use-toast';
+import { useCart } from '@/context/cart-context';
 
 const CheckoutSchema = z.object({
-  userName: z.string().min(2, { message: "First name must be at least 2 characters" }),
+  clientName: z.string().min(2, { message: "First name must be at least 2 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
   phone: z.string().regex(/^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/, { message: "Invalid phone number" }),
   termsAccepted: z.boolean().refine(val => val, { message: "You must accept the terms and services" })
@@ -31,32 +33,60 @@ type CheckoutSchema = z.infer<typeof CheckoutSchema>;
 const CheckoutModal = ({ 
   isOpen, 
   onClose, 
-  cartItemIds 
+  cartItemIds,
+  totalCost,
 }: {
   isOpen: boolean;
   onClose: () => void;
   cartItemIds: string[];
+  totalCost: number
 }) => {
+  const { dispatch } = useCart();
+  const [isLoading, setIsLoading] = useState(false);
   const form = useForm({
     resolver: zodResolver(CheckoutSchema),
     defaultValues: {
-      userName: '',
+      clientName: '',
       email: '',
       phone: '',
       termsAccepted: false
     }
   });
 
-  const onSubmit: SubmitHandler<CheckoutSchema> = (data) => {
-    // Combine form data with cart item IDs
+  const onSubmit: SubmitHandler<CheckoutSchema> = async (data) => {
+    setIsLoading(true)
     const checkoutData = {
       ...data,
-      itemIds: cartItemIds
+      sessionIds: cartItemIds,
+      totalCost
     };
-    
-    console.log('Checkout Data:', checkoutData);
-    // Implement your checkout logic here
-    onClose();
+
+    try {
+      const response = await fetch('http://localhost:3001/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checkoutData)
+      });
+
+      if (response.ok) {
+        toast({ 
+          title: "Booking Successful", 
+          description: "Your sessions have been booked!",
+        });
+        dispatch({ type: 'CLEAR_CART' })
+      } else {
+        throw new Error('Booking failed');
+      }
+    } catch (error) {
+      console.log({ error })
+      toast({ 
+        title: "Booking Error", 
+        description: "Unable to complete booking",
+        variant: 'destructive'
+      });
+    } finally {
+      onClose();
+    }
   };
 
   return (
@@ -70,10 +100,10 @@ const CheckoutModal = ({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="userName"
+              name="clientName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>First Name</FormLabel>
+                  <FormLabel>User Name</FormLabel>
                   <FormControl>
                     <Input placeholder="John" {...field} />
                   </FormControl>
@@ -133,8 +163,19 @@ const CheckoutModal = ({
               )}
             />
             
-            <Button type="submit" className="w-full">
-              Complete Checkout
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <div
+                  className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-e-transparent align-[-0.125em] text-primary motion-reduce:animate-[spin_1.5s_linear_infinite]"
+                  role="status"
+                >
+                  <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
+                    Loading...
+                  </span>
+                </div>
+                ) : (
+                'Complete Checkout'
+                )}
             </Button>
           </form>
         </Form>
