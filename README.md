@@ -2,16 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+1. **Copy env variables**  
+   ```bash
+   cp .env.example .env.local
+   ```
 
-```bash
-npm run dev
-```
-
-To build run
-
-```bash
-npm run build
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Start app**  
+    ```bash
+    npm run dev
+    ```
+    
+    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Build app for production**  
+    ```bash
+    npm run build
+    ```
