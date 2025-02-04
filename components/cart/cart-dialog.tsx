@@ -6,17 +6,18 @@ import { Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import CheckoutModal from '../checkout/checkout-modal';
 import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 export function CartDialog({ open, onOpenChange }: { 
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { state, dispatch } = useCart();
+  const { state: { bookingDetails }, dispatch } = useCart();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   const totalCost = useMemo(() => {
-    return state.items.reduce((total, item) => total + item.price, 0);
-  }, [state.items]);
+    return bookingDetails.reduce((total, item) => total + item.price, 0);
+  }, [bookingDetails]);
 
   const removeFromCart = (id: string) => {
     toast({ 
@@ -25,6 +26,9 @@ export function CartDialog({ open, onOpenChange }: {
     });
     dispatch({ type: 'REMOVE_ITEM', payload: id })
   }
+
+  if (!bookingDetails) return null;
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -35,24 +39,26 @@ export function CartDialog({ open, onOpenChange }: {
             </SheetTitle>
           </SheetHeader>
 
-          {state.items.length === 0 ? (
+          {bookingDetails.length === 0 ? (
             <div className="text-center text-gray-500 mt-10">
               Your cart is empty
             </div>
           ) : (
             <div>
-              {state.items.map((session) => (
+              {bookingDetails.map((session) => (
                 <div 
                   key={session.id} 
                   className="flex justify-between items-center border-b py-3"
                 >
                   <div>
-                    <p className="font-medium"><strong>{session.type}</strong> - by {session.trainer.name}</p>
+                    <p className="font-medium"><strong>Session Type:</strong> {session.sessionType}</p>
+                    <p className="font-medium"><strong>Duration:</strong> {session.duration} minutes</p>
+                    <p className="font-medium"><strong>Trainer:</strong> {session.trainerName}</p>
                     <p className="text-sm text-gray-500">
-                      ${session.price}
+                    <strong>Price:</strong> ${session.price}
                     </p>
                     <p className="text-sm text-gray-500">
-                    <strong>Start time</strong>: {new Date(session.startTime)?.toLocaleDateString()}
+                    <strong>Start time</strong>: {format(session.startTime, 'PPP p')}
                     </p>
                   </div>
                   <Button
@@ -83,7 +89,7 @@ export function CartDialog({ open, onOpenChange }: {
         <CheckoutModal 
           isOpen={isCheckoutOpen} 
           onClose={() => setIsCheckoutOpen(false)}
-          cartItemIds={state.items.map((item) => item.id)} 
+          trainerAvailabilityIds={bookingDetails.map((item) => item.trainerAvailabilityId)} 
           totalCost={totalCost}
         />
       )}

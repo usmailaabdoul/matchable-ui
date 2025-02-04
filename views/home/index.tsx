@@ -1,101 +1,158 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
-
-import { Header } from '@/components/cart/header';
-import { SessionCard } from '@/components/session/session-card';
+import React, { Suspense, useMemo, useState } from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import { useCart } from '@/context/cart-context';
+import { Session, SessionType } from '@/types';
+import { Button } from '@/components/ui/button';
+import HomeCalendar from './components/home-calendar';
 import { SessionSkeleton } from '@/components/session/session-skeleton';
-import { CartProvider } from '@/context/cart-context';
-import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Session } from '@/types';
 
-export default function Home({
-  data,
-}: { data: Session[]}) {
+const SessionSelector = ({
+  sessions,
+}: { sessions: Session[]}) => {
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [sessions, setSessions] = useState<Session[]>(data || []);
-  const [filters, setFilters] = useState({
-    type: 'ALL',
-    trainer: 'ALL'
-  });
+  const [selectedTrainerSlot, setSelectedTrainerSlot] = useState<string | null>(null);
 
-  const filteredSessions = useMemo(() => sessions.filter(session => {
-    const sessionDate = new Date(session?.startTime);
-    const dateMatch = selectedDate 
-      ? sessionDate.toDateString() === selectedDate.toDateString()
-      : true;
+  const { dispatch } = useCart();
 
-      const typeMatch = filters.type === 'ALL' || session.type === filters.type;
-      const trainerMatch = filters.trainer === 'ALL' || session.trainer.name === filters.trainer;
+  const currentSession = useMemo(() => sessions?.find(s => s.id === selectedSession), [selectedSession, sessions]);
+  
+  const availableTimeSlots = useMemo(() => currentSession?.timeSlots.filter(slot => {
+    const slotDate = new Date(slot.startTime);
+    return selectedDate && 
+           slotDate.toDateString() === selectedDate.toDateString() &&
+           slot.availableTrainers.some(trainer => !trainer.isBooked);
+  }), [currentSession?.timeSlots, selectedDate]);
 
-      return dateMatch && typeMatch && trainerMatch;
-    }), [filters, selectedDate, sessions]);
+  const handleDurationSelect = (durationId: string, sessionId: string) => {
+    setSelectedDuration(durationId);
+    setSelectedSession(sessionId);
+    setSelectedTrainerSlot(null);
+  };
 
-  const uniqueTrainers = [...new Set(sessions.map(s => s.trainer.name))];
-  const sessionTypes = ['PADEL', 'FITNESS', 'TENNIS'];
+  const handleTrainerSlotSelect = (trainerAvailabilityId: string) => {
+    setSelectedTrainerSlot(trainerAvailabilityId);
+    
+    if (currentSession && selectedDuration) {
+      const duration = currentSession.durations.find(d => d.id === selectedDuration);
+      const trainerSlot = currentSession.timeSlots
+        .flatMap(slot => slot.availableTrainers)
+        .find(t => t.id === trainerAvailabilityId);
+
+      if (duration && trainerSlot) {
+        dispatch({
+          type: 'ADD_ITEM',
+          payload: {
+            id: `${duration.id}-${trainerAvailabilityId}-${trainerSlot.id}`,
+            sessionType: currentSession.type as SessionType,
+            duration: duration.minutes,
+            price: duration.price,
+            trainerAvailabilityId,
+            trainerName: trainerSlot.trainerName,
+            startTime: new Date(currentSession.timeSlots.find(
+              slot => slot.availableTrainers.some(t => t.id === trainerAvailabilityId)
+            )?.startTime || ''),
+          }
+        })
+      }
+    }
+  };
+
+  const getSessionAndDuration = useMemo(() => {
+    const sessionType = currentSession?.type;
+    const duration = currentSession?.durations.find((duration) => duration.id == selectedDuration)
+
+    return `For the ${sessionType} session - Duration of ${duration?.minutes} min - Costing: $${duration?.price}`
+  }, [currentSession?.durations, currentSession?.type, selectedDuration])
 
   return (
-    <CartProvider>
-      <div className="min-h-screen">
-        <Header />
-        
-        <div className="flex space-x-10 mx-10 my-10">
-          <div className="w-auto">
-            <h2 className='text-2xl mb-4'>Filter Options</h2>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md border"
-            />
-            
-            <div className="mt-4 space-y-2">
-              <Select 
-                value={filters.type}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}
+    <div className="flex lg:flex-row flex-col gap-5">
+      <div className='lg:w-1/3 w-full'>
+        <h2 className="text-xl font-semibold mb-4">Session Type</h2>
+        <div className="grid gap-4">
+          <Suspense fallback={<>
+            <SessionSkeleton />
+            <SessionSkeleton />
+            <SessionSkeleton />
+          </>}>
+            {sessions.map((session, i) => (
+              <Card 
+                key={session.id}
+                className={`cursor-pointer ${
+                  selectedSession === session.id ? 'border-blue-500' : ''
+                }`}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Session Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Types</SelectItem>
-                  {sessionTypes.map(type => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <CardHeader>
+                  <CardTitle className='mb-4'>{session.type}</CardTitle>
 
-              <Select 
-                value={filters.trainer}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, trainer: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Trainer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Trainers</SelectItem>
-                  {uniqueTrainers.map((trainer) => (
-                    <SelectItem key={trainer} value={trainer}>{trainer}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="w-3/4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <Suspense fallback={<>
-              <SessionSkeleton />
-              <SessionSkeleton />
-              <SessionSkeleton />
-            </>}>
-              {filteredSessions.map((session) => (
-                <SessionCard key={session.id} session={session} />
-              ))}
-            </Suspense>
-          </div>
+                  <div>
+                    <h2>Select Duration</h2>
+                    <div className='flex flex-wrap gap-2 mt-1'>
+                      {sessions[i].durations?.map(duration => (
+                        <Button 
+                          key={duration.id}
+                          onClick={() => handleDurationSelect(duration.id, session.id)}
+                        >{duration.minutes} minutes - Price: ${duration.price}</Button>
+                      ))}
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </Suspense>
         </div>
       </div>
-    </CartProvider>
+
+      {selectedDuration && (
+        <div className='lg:w-2/3 w-full'>
+          <h2 className="text-xl font-semibold mb-4">Select Date & Trainer <span className='text-green-400'>{getSessionAndDuration}</span></h2>
+          <div className='flex sm:flex-row flex-col gap-4'>
+            <div>
+              <HomeCalendar 
+                timeSlots={currentSession?.timeSlots}
+                selected={selectedDate}
+                onSelect={(date) => {
+                  console.log('selected date: ', date)
+                  setSelectedDate(date)
+                }}
+              />
+            </div>
+            
+            <div className='flex flex-row flex-wrap gap-4'>
+              {availableTimeSlots?.map(slot => (
+                <Card key={slot.id} className="sm:min-w-56 min-w-full">
+                  <CardHeader>
+                    <CardTitle>{format(new Date(slot.startTime), 'h:mm a')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {slot.availableTrainers
+                        .filter(trainer => !trainer.isBooked)
+                        .map(trainer => (
+                          <div
+                            key={trainer.id}
+                            className={`p-2 border rounded cursor-pointer ${
+                              selectedTrainerSlot === trainer.id ? 'bg-blue-100' : ''
+                            }`}
+                            onClick={() => handleTrainerSlotSelect(trainer.id)}
+                          >
+                            {trainer.trainerName}
+                          </div>
+                        ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-}
+};
+
+export default SessionSelector;

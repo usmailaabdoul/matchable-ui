@@ -22,6 +22,8 @@ import { Checkbox } from '../ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useCart } from '@/context/cart-context';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 const CheckoutSchema = z.object({
   clientName: z.string().min(2, { message: "First name must be at least 2 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
@@ -33,12 +35,12 @@ type CheckoutSchema = z.infer<typeof CheckoutSchema>;
 const CheckoutModal = ({ 
   isOpen, 
   onClose, 
-  cartItemIds,
+  trainerAvailabilityIds,
   totalCost,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  cartItemIds: string[];
+  trainerAvailabilityIds: string[];
   totalCost: number
 }) => {
   const { dispatch } = useCart();
@@ -57,35 +59,52 @@ const CheckoutModal = ({
     setIsLoading(true)
     const checkoutData = {
       ...data,
-      sessionIds: cartItemIds,
+      trainerAvailabilityIds: trainerAvailabilityIds,
       totalCost
     };
 
     try {
-      const response = await fetch('http://localhost:3001/bookings', {
+      const response = await fetch(`${API_URL}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(checkoutData)
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.bookedSlots) {
+          const { message, bookedSlots } = errorData;
+          const bookedSlotsMessage = bookedSlots.map((slot: {trainer: string, time: string}) => {
+            const time = new Date(slot.time).toLocaleString();
+            return `${slot.trainer} at ${time}`;
+          }).join('\n');
+
+          toast({ 
+            title: `${message}`, 
+            description: `Booked slots:\n${bookedSlotsMessage}`,
+            variant: 'destructive'
+          });
+        } else {
+          console.log('Error:', errorData.message);
+        }
+      } else {
         toast({ 
           title: "Booking Successful", 
-          description: "Your sessions have been booked!",
+          description: "Your booking has been confirmed!",
         });
-        dispatch({ type: 'CLEAR_CART' })
-      } else {
-        throw new Error('Booking failed');
+        dispatch({ type: 'CLEAR_CART' });
+        form.reset();
       }
     } catch (error) {
       console.log({ error })
       toast({ 
-        title: "Booking Error", 
-        description: "Unable to complete booking",
+        title: "Error", 
+        description: "Failed to complete booking. Please try again.",
         variant: 'destructive'
       });
     } finally {
       onClose();
+      setIsLoading(false);
     }
   };
 
