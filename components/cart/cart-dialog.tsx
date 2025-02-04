@@ -1,12 +1,13 @@
 'use client';
+import { format } from 'date-fns';
+import { useMemo, useState } from 'react';
+import { Trash2 } from 'lucide-react';
+
 import { useCart } from '@/context/cart-context';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
-import { Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
 import CheckoutModal from '../checkout/checkout-modal';
 import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 
 export function CartDialog({ open, onOpenChange }: { 
   open: boolean;

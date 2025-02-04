@@ -1,8 +1,10 @@
 'use client';
 
 import React, { Suspense, useMemo, useState } from 'react';
-import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Timer, User } from 'lucide-react';
 import { format } from 'date-fns';
+
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { useCart } from '@/context/cart-context';
 import { Session, SessionType } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -15,9 +17,8 @@ const SessionSelector = ({
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedTrainerSlot, setSelectedTrainerSlot] = useState<string | null>(null);
 
-  const { dispatch } = useCart();
+  const { state: { bookingDetails }, dispatch } = useCart();
 
   const currentSession = useMemo(() => sessions?.find(s => s.id === selectedSession), [selectedSession, sessions]);
   
@@ -31,23 +32,25 @@ const SessionSelector = ({
   const handleDurationSelect = (durationId: string, sessionId: string) => {
     setSelectedDuration(durationId);
     setSelectedSession(sessionId);
-    setSelectedTrainerSlot(null);
   };
 
-  const handleTrainerSlotSelect = (trainerAvailabilityId: string) => {
-    setSelectedTrainerSlot(trainerAvailabilityId);
-    
+  const getTrainerSlot = (trainerAvailabilityId: string) => {
+    if (!currentSession) return;
+    return currentSession.timeSlots
+      .flatMap(slot => slot.availableTrainers)
+      .find(t => t.id === trainerAvailabilityId);
+  }
+
+  const handleTrainerSlotSelect = (trainerAvailabilityId: string, bookingId: string) => {
     if (currentSession && selectedDuration) {
       const duration = currentSession.durations.find(d => d.id === selectedDuration);
-      const trainerSlot = currentSession.timeSlots
-        .flatMap(slot => slot.availableTrainers)
-        .find(t => t.id === trainerAvailabilityId);
+      const trainerSlot = getTrainerSlot(trainerAvailabilityId);
 
       if (duration && trainerSlot) {
         dispatch({
           type: 'ADD_ITEM',
           payload: {
-            id: `${duration.id}-${trainerAvailabilityId}-${trainerSlot.id}`,
+            id: bookingId,
             sessionType: currentSession.type as SessionType,
             duration: duration.minutes,
             price: duration.price,
@@ -126,23 +129,28 @@ const SessionSelector = ({
               {availableTimeSlots?.map(slot => (
                 <Card key={slot.id} className="sm:min-w-56 min-w-full">
                   <CardHeader>
-                    <CardTitle>{format(new Date(slot.startTime), 'h:mm a')}</CardTitle>
+                    <CardTitle className='flex items-center gap-2'><Timer />{format(new Date(slot.startTime), 'h:mm a')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
                       {slot.availableTrainers
                         .filter(trainer => !trainer.isBooked)
-                        .map(trainer => (
-                          <div
+                        .map(trainer => {
+                          const trainerSlot = getTrainerSlot(trainer.id);
+                          const bookingId = `${selectedDuration}-${trainer.id}-${trainerSlot?.id}`
+                          const isSessionSelected = () => bookingDetails.some(s => s.id === bookingId);
+
+                          return (
+                          <Button
                             key={trainer.id}
-                            className={`p-2 border rounded cursor-pointer ${
-                              selectedTrainerSlot === trainer.id ? 'bg-blue-100' : ''
-                            }`}
-                            onClick={() => handleTrainerSlotSelect(trainer.id)}
+                            className={'w-full'}
+                            onClick={() => handleTrainerSlotSelect(trainer.id, bookingId)}
+                            disabled={isSessionSelected()}
+                            variant='outline'
                           >
-                            {trainer.trainerName}
-                          </div>
-                        ))}
+                            <User /> {trainer.trainerName}
+                          </Button>
+                        )})}
                     </div>
                   </CardContent>
                 </Card>

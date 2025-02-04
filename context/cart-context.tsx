@@ -1,6 +1,7 @@
 "use client"
-import { BookingDetails } from '@/types';
 import { createContext, useContext, useReducer, ReactNode } from 'react';
+
+import { BookingDetails } from '@/types';
 
 type CartState = {
   bookingDetails: BookingDetails[];
