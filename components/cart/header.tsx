@@ -10,7 +10,7 @@ export function Header() {
   const { state: { bookingDetails } } = useCart();
 
   return (
-    <header className="border-b sticky top-0 z-10">
+    <header className="border-b sticky bg-background top-0 z-10">
       <div className="container mx-auto py-4 flex justify-between items-center">
         <h1 className="text-xl font-bold">Matchable - Book Your Training Session</h1>
         <Button 
